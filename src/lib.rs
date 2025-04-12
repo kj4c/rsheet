@@ -1,6 +1,7 @@
-mod format_cell;
+mod handle_cell;
 
-use format_cell::format_cell_key;
+use handle_cell::{cell_key, cell_to_string};
+use rsheet_lib::cell_expr;
 use rsheet_lib::cell_value::CellValue;
 use rsheet_lib::cells::column_number_to_name;
 use rsheet_lib::command::Command;
@@ -43,12 +44,8 @@ where
                             // number = row, letter = collumn.
 
                             // TODO: handle invalid cells.
-                            let row = cell_identifier.row;
-                            let row_string = (row + 1).to_string();
-                            let col = cell_identifier.col;
-                            let col_string  = column_number_to_name(col);
-                            let cell_string= format!("{}{}", col_string, row_string);
-                            let cell_num = (row, col);
+                            let cell_string = cell_to_string(cell_identifier);
+                            let cell_num = cell_key(cell_identifier);
 
                             if let Some(value) = spreadsheet.get(&cell_num) {
                                 Reply::Value(cell_string, CellValue::String(value.clone()))
@@ -59,7 +56,12 @@ where
                         Command::Set {
                             cell_identifier,
                             cell_expr,
-                        } => todo!(),
+                        } => {
+                            spreadsheet.insert(cell_key(cell_identifier), cell_expr.clone());
+
+                            // skip the reply
+                            continue;
+                        },
                     },
                     Err(e) => Reply::Error(e),
                 };

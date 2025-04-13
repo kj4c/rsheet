@@ -6,7 +6,7 @@ use rsheet_lib::cell_expr::{self, CellExpr};
 use spreadsheet::CellContent;
 use rsheet_lib::cell_value::CellValue;
 use rsheet_lib::cells::column_number_to_name;
-use rsheet_lib::command::Command;
+use rsheet_lib::command::{CellIdentifier, Command};
 use rsheet_lib::connect::{
     Connection, Manager, ReadMessageResult, Reader, WriteMessageResult, Writer,
 };
@@ -23,9 +23,9 @@ where
     M: Manager,
 {
     // start the spreadsheet instance. 
-    let mut spreadsheet: HashMap<(u32, u32), CellContent> = HashMap::new();
+    let mut spreadsheet: HashMap<String, CellContent> = HashMap::new();
     // dependency graph to see what affects what
-    let mut dependency: HashMap<(u32, u32), HashSet<(u32, u32)>> = HashMap::new();
+    let mut dependency: HashMap<String, HashSet<String>> = HashMap::new();
 
     // This initiates a single client connection, and reads and writes messages
     // indefinitely.
@@ -53,7 +53,7 @@ where
                             let cell_string = cell_to_string(cell_identifier);
                             let cell_num = cell_key(cell_identifier);
 
-                            if let Some(content) = spreadsheet.get(&cell_num) {
+                            if let Some(content) = spreadsheet.get(&cell_string) {
                                 Reply::Value(cell_string, content.value.clone())
                             } else {
                                 Reply::Value(cell_string, CellValue::None)
@@ -66,7 +66,23 @@ where
                             // first find all the variables related to this function
                             let expression = CellExpr::new(&cell_expr);
                             let vars = expression.find_variable_names();
+
+                            // curr cell key
+                            let cell_string = cell_to_string(cell_identifier);
+
+                            // this means that each var in vars affects  tings
+                            for var in vars {
+                                dependency.entry(var.clone()).or_default().insert(cell_string.clone());
+                            }
                             
+                            // need to find the value using evaluate, they use hashmap so each key u run get on it?
+                            
+                            
+                            // set the thing in the hashmap and that.
+                            spreadsheet.insert(cell_string.clone(), CellContent {
+                                formula: None,
+                                value: CellValue::String(cell_expr.clone())
+                            });
 
                             // skip the reply
                             continue;

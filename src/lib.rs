@@ -81,7 +81,13 @@ where
                             // set the thing in the hashmap and that.
                             spreadsheet.insert(cell_string.clone(), CellContent {
                                 formula: None,
-                                value: CellValue::String(cell_expr.clone())
+                                value: match cell_expr.parse::<i64>() {
+                                    Ok(n) => CellValue::Int(n),
+                                    Err(_) => {
+                                        let s = cell_expr.trim_matches('"').to_string();
+                                        CellValue::String(s)
+                                    }
+                                }
                             });
 
                             // skip the reply

@@ -1,7 +1,9 @@
 mod handle_cell;
+mod spreadsheet;
 
 use handle_cell::{cell_key, cell_to_string};
-use rsheet_lib::cell_expr;
+use rsheet_lib::cell_expr::{self, CellExpr};
+use spreadsheet::CellContent;
 use rsheet_lib::cell_value::CellValue;
 use rsheet_lib::cells::column_number_to_name;
 use rsheet_lib::command::Command;
@@ -10,7 +12,8 @@ use rsheet_lib::connect::{
 };
 use rsheet_lib::replies::Reply;
 
-use std::collections::HashMap;
+use std::cell::{self, Cell};
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
 use log::info;
@@ -20,7 +23,10 @@ where
     M: Manager,
 {
     // start the spreadsheet instance. 
-    let mut spreadsheet: HashMap<(u32, u32), String> = HashMap::new();
+    let mut spreadsheet: HashMap<(u32, u32), CellContent> = HashMap::new();
+    // dependency graph to see what affects what
+    let mut dependency: HashMap<(u32, u32), HashSet<(u32, u32)>> = HashMap::new();
+
     // This initiates a single client connection, and reads and writes messages
     // indefinitely.
     let (mut recv, mut send) = match manager.accept_new_connection() {
@@ -47,8 +53,8 @@ where
                             let cell_string = cell_to_string(cell_identifier);
                             let cell_num = cell_key(cell_identifier);
 
-                            if let Some(value) = spreadsheet.get(&cell_num) {
-                                Reply::Value(cell_string, CellValue::String(value.clone()))
+                            if let Some(content) = spreadsheet.get(&cell_num) {
+                                Reply::Value(cell_string, content.value.clone())
                             } else {
                                 Reply::Value(cell_string, CellValue::None)
                             }
@@ -57,7 +63,10 @@ where
                             cell_identifier,
                             cell_expr,
                         } => {
-                            spreadsheet.insert(cell_key(cell_identifier), cell_expr.clone());
+                            // first find all the variables related to this function
+                            let expression = CellExpr::new(&cell_expr);
+                            let vars = expression.find_variable_names();
+                            
 
                             // skip the reply
                             continue;

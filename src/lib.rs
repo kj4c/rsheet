@@ -2,11 +2,12 @@ mod handle_cell;
 mod spreadsheet;
 
 use handle_cell::{cell_key, cell_to_string};
-use rsheet_lib::cell_expr::{self, CellExpr};
+use rsheet_lib::cell_expr::{self, CellArgument, CellExpr};
 use spreadsheet::CellContent;
 use rsheet_lib::cell_value::CellValue;
 use rsheet_lib::cells::column_number_to_name;
 use rsheet_lib::command::{CellIdentifier, Command};
+use regex::Regex;
 use rsheet_lib::connect::{
     Connection, Manager, ReadMessageResult, Reader, WriteMessageResult, Writer,
 };
@@ -70,12 +71,23 @@ where
                             // curr cell key
                             let cell_string = cell_to_string(cell_identifier);
 
-                            // this means that each var in vars affects  tings
+                            // check that the value is sleep_then
+                            let regex_sleep = Regex::new(r#"^sleep_then\((\d+),(.+)\)$"#).unwrap();
+                            let cell_expr = if let Some(caps) = regex_sleep.captures(&cell_expr) {
+                                caps[2].trim().to_string()
+                            } else {
+                                cell_expr.clone()
+                            };
+                            // this means that each var in vars affects tings
+                            
+                            let var_to_value: HashMap<String, CellArgument> = HashMap::new();
                             for var in vars {
                                 dependency.entry(var.clone()).or_default().insert(cell_string.clone());
                             }
                             
                             // need to find the value using evaluate, they use hashmap so each key u run get on it?
+
+
                             
                             
                             // set the thing in the hashmap and that.

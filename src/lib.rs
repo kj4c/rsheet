@@ -1,5 +1,6 @@
 mod handle_cell;
 mod spreadsheet;
+pub mod set;
 
 use handle_cell::{cell_key, cell_to_string};
 use rsheet_lib::cell_expr::{self, CellArgument, CellExpr};
@@ -26,7 +27,10 @@ where
     // start the spreadsheet instance. 
     let mut spreadsheet: HashMap<String, CellContent> = HashMap::new();
     // dependency graph to see what affects what
-    let mut dependency: HashMap<String, HashSet<String>> = HashMap::new();
+    // so key = A1, set = A2 => A1 has an equation with A2
+    let mut depends_on: HashMap<String, HashSet<String>> = HashMap::new();
+    // so key = A1, set = A2 => A2 depends on A1
+    let mut depends_by: HashMap<String, HashSet<String>> = HashMap::new();
 
     // This initiates a single client connection, and reads and writes messages
     // indefinitely.
@@ -49,7 +53,7 @@ where
                     Ok(command) => match command {
                         Command::Get { cell_identifier } => {
                             // number = row, letter = collumn.
-
+                            
                             // TODO: handle invalid cells.
                             let cell_string = cell_to_string(cell_identifier);
                             let cell_num = cell_key(cell_identifier);
@@ -78,28 +82,80 @@ where
                             } else {
                                 cell_expr.clone()
                             };
-                            // this means that each var in vars affects tings
-                            
-                            let var_to_value: HashMap<String, CellArgument> = HashMap::new();
-                            for var in vars {
-                                dependency.entry(var.clone()).or_default().insert(cell_string.clone());
+
+                            // need to update all dependencies.
+                            // clear depends_on for that cell
+                            let old_deps: Vec<String> = depends_on
+                            .get(&cell_string)
+                            .map(|set| set.iter().cloned().collect())
+                            .unwrap_or_default();
+
+                            // clear everything it previously depended on
+                            for dep in old_deps {
+                                if let Some(set) = depends_by.get_mut(&dep) {
+                                    set.remove(&cell_string);
+                                }
                             }
-                            
-                            // need to find the value using evaluate, they use hashmap so each key u run get on it?
 
+                            // clear this too
+                            depends_on.entry(cell_string.clone()).or_default().clear();
+                            
+                            // get all the values
+                            let mut var_to_value: HashMap<String, CellArgument> = HashMap::new();
+                            let mut has_formula = false;
+                            if vars.len() != 0 {
+                                has_formula = true;
+                            }
 
-                            
-                            
-                            // set the thing in the hashmap and that.
-                            spreadsheet.insert(cell_string.clone(), CellContent {
-                                formula: None,
-                                value: match cell_expr.parse::<i64>() {
-                                    Ok(n) => CellValue::Int(n),
-                                    Err(_) => {
-                                        let s = cell_expr.trim_matches('"').to_string();
-                                        CellValue::String(s)
+                            // this adds dependencies for each variable cell used
+                            for var in vars {
+                                // says that this cell depends on these variables
+                                depends_on.entry(cell_string.clone()).or_default().insert(var.clone());
+                                // otherway around
+                                depends_by.entry(var.clone()).or_default().insert(cell_string.clone());
+
+                                let final_val = if let Some(content) = spreadsheet.get(&var) {
+                                    content.value.clone()
+                                } else {
+                                    CellValue::None
+                                };
+
+                                // get that value make a hashmap
+                                var_to_value.insert(var, CellArgument::Value(final_val));
+                            }
+
+                            // go through everything that depended on this cell
+                            for dep in depends_by
+                            .get(&cell_string)
+                            .map(|set| set.iter().cloned().collect()::<Vec<_>>())
+                            .unwrap_or_default() {
+                                // run the setting for each dependency
+
+                            }
+
+                            let evaluated = CellExpr::new(&cell_expr).evaluate(&var_to_value);
+
+                            // if it fails means that you're missing something
+                            let value = match evaluated {
+                                Ok(val) => val,
+                                Err(_) => {
+                                    match cell_expr.parse::<i64>() {
+                                        Ok(n) => CellValue::Int(n),
+                                        Err(_) => CellValue::String(cell_expr.trim_matches('"').to_string()),
                                     }
                                 }
+                            };
+
+                            // set the thing in the hashmap and that.
+                            spreadsheet.insert(cell_string.clone(), CellContent {
+                                formula: {
+                                    if has_formula {
+                                        Some(expression)
+                                    } else {
+                                        None
+                                    }
+                                },
+                                value,
                             });
 
                             // skip the reply

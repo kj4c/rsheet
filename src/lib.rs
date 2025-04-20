@@ -1,6 +1,7 @@
 mod handle_cell;
 mod spreadsheet;
 pub mod set;
+pub mod get;
 
 use handle_cell::{cell_key, cell_to_string};
 use rsheet_lib::cell_expr::{self, CellArgument, CellExpr};
@@ -54,7 +55,7 @@ where
                     Ok(command) => match command {
                         Command::Get { cell_identifier } => {
                             // number = row, letter = collumn.
-                            
+                            get()
                             // TODO: handle invalid cells.
                             let cell_string = cell_to_string(cell_identifier);
                             let cell_num = cell_key(cell_identifier);

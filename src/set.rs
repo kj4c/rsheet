@@ -13,6 +13,7 @@ pub fn set_cell(
 ) {
     let expression = CellExpr::new(&formula);
     let vars = expression.find_variable_names();
+    println!("{vars:?}");
     let has_formula = !vars.is_empty();
 
     // get rid of prev dependencies
@@ -52,8 +53,8 @@ pub fn set_cell(
     let value = match evaluated {
         Ok(v) => v,
         Err(_) => match formula.parse::<i64>() {
-            Ok(n) => CellValue::Int(n),
-            Err(_) => CellValue::String(formula.trim_matches('"').to_string()),
+            Ok(v) => CellValue::Int(v),
+            Err(e) => CellValue::Error(e.to_string()),
         },
     };
 

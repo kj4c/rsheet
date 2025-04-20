@@ -55,16 +55,7 @@ where
                     Ok(command) => match command {
                         Command::Get { cell_identifier } => {
                             // number = row, letter = collumn.
-                            get()
-                            // TODO: handle invalid cells.
-                            let cell_string = cell_to_string(cell_identifier);
-                            let cell_num = cell_key(cell_identifier);
-
-                            if let Some(content) = spreadsheet.get(&cell_string) {
-                                Reply::Value(cell_string, content.value.clone())
-                            } else {
-                                Reply::Value(cell_string, CellValue::None)
-                            }
+                            get::get_cell(cell_identifier, &spreadsheet)
                         },
                         Command::Set {
                             cell_identifier,

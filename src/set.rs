@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use rsheet_lib::{cell_expr::{CellArgument, CellExpr}, cell_value::CellValue};
 
-use crate::spreadsheet::CellContent;
+use crate::{handle_cell::handle_range, spreadsheet::CellContent};
 
 pub fn set_cell(
     cell_string: String,
@@ -39,8 +39,8 @@ pub fn set_cell(
         let value = spreadsheet.get(var).map(|c| c.value.clone()).unwrap_or(CellValue::None);
 
         if var.contains('_') {
-            // let vec_val = get_range_values(var, spreadsheet);
-            // var_to_value.insert(var.clone(), CellArgument::Vector(vec_val));
+            let vec_val = handle_range(var.clone(), spreadsheet);
+            var_to_value.insert(var.clone(), vec_val);
         } else {
             var_to_value.insert(var.clone(), CellArgument::Value(value));
         }

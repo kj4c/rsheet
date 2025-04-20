@@ -13,7 +13,7 @@ pub fn set_cell(
 ) {
     let expression = CellExpr::new(&formula);
     let vars = expression.find_variable_names();
-    println!("{vars:?}");
+    // println!("{vars:?}");
     let has_formula = !vars.is_empty();
 
     // get rid of prev dependencies

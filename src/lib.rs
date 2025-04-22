@@ -105,7 +105,7 @@ where
                     }
                 });
 
-                threads.push(handle);
+                threads.push(thread);
             }
             Connection::NoMoreConnections => {
                 break;

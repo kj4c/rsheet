@@ -55,12 +55,15 @@ where
     //         return Ok(());
     //     }
     // };
+
+    let mut threads = vec![];
+
     loop {
         match manager.accept_new_connection() {
             Connection::NewConnection { mut reader, mut writer } => {
                 let state_clone = Arc::clone(&state);
                 
-                thread::spawn(move || {
+                let thread = thread::spawn(move || {
                     loop {
                         match reader.read_message() {
                             ReadMessageResult::Message(msg) => {
@@ -101,66 +104,17 @@ where
                         }
                     }
                 });
+
+                threads.push(handle);
             }
             Connection::NoMoreConnections => {
                 break;
             }
         }
-        // info!("Just got message");
-        // match recv.read_message() {
-        //     ReadMessageResult::Message(msg) => {
-        //         // rsheet_lib already contains a FromStr<Command> (i.e. parse::<Command>)
-        //         // implementation for parsing the get and set commands. This is just a
-        //         // demonstration of how to use msg.parse::<Command>, you may want/have to
-        //         // change this code.
-        //         let reply = match msg.parse::<Command>() {
-        //             Ok(command) => match command {
-        //                 Command::Get { cell_identifier } => {
-        //                     // number = row, letter = collumn.
-        //                     get::get_cell(cell_identifier, &spreadsheet)
-        //                 },
-        //                 Command::Set {
-        //                     cell_identifier,
-        //                     cell_expr,
-        //                 } => {
-        //                     set_cell(
-        //                         cell_to_string(cell_identifier),
-        //                         cell_expr,
-        //                         &mut spreadsheet,
-        //                         &mut depends_on,
-        //                         &mut depends_by,
-        //                     );
-        //                     continue;
-        //                 },
-        //             },
-        //             Err(e) => Reply::Error(e),
-        //         };
-
-        //         match send.write_message(reply) {
-        //             WriteMessageResult::Ok => {
-        //                 // Message successfully sent, continue.
-        //             }
-        //             WriteMessageResult::ConnectionClosed => {
-        //                 // The connection was closed. This is not an error, but
-        //                 // should terminate this connection.
-        //                 break;
-        //             }
-        //             WriteMessageResult::Err(e) => {
-        //                 // An unexpected error was encountered.
-        //                 return Err(Box::new(e));
-        //             }
-        //         }
-        //     }
-        //     ReadMessageResult::ConnectionClosed => {
-        //         // The connection was closed. This is not an error, but
-        //         // should terminate this connection.
-        //         break;
-        //     }
-        //     ReadMessageResult::Err(e) => {
-        //         // An unexpected error was encountered.
-        //         return Err(Box::new(e));
-        //     }
-        // }
     }
+    for thread in threads {
+        let _ = thread.join();
+    }
+
     Ok(())
 }

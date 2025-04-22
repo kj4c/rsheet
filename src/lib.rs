@@ -56,14 +56,12 @@ where
     //     }
     // };
 
-    let mut threads = vec![];
-
     loop {
         match manager.accept_new_connection() {
             Connection::NewConnection { mut reader, mut writer } => {
                 let state_clone = Arc::clone(&state);
                 
-                let thread = thread::spawn(move || {
+                let _ = thread::spawn(move || {
                     loop {
                         match reader.read_message() {
                             ReadMessageResult::Message(msg) => {
@@ -103,17 +101,12 @@ where
                             }
                         }
                     }
-                });
-
-                threads.push(thread);
+                }).join();
             }
             Connection::NoMoreConnections => {
                 break;
             }
         }
-    }
-    for thread in threads {
-        let _ = thread.join();
     }
 
     Ok(())

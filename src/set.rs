@@ -40,12 +40,21 @@ pub fn set_cell(
         let value = spreadsheet.get(var).map(|c| c.value.clone()).unwrap_or(CellValue::None);
 
         if var.contains('_') {
-            let vec_val = handle_range(var.clone(), spreadsheet);
-            var_to_value.insert(var.clone(), vec_val);
+            let (variables_used, vec_vals) = handle_range(var.clone(), spreadsheet);
+            
+            // add the variables used to the depends_on
+            for var_in_range in variables_used {
+                depends_on.entry(cell_string.clone()).or_default().insert(var_in_range.clone());
+                depends_by.entry(var_in_range.clone()).or_default().insert(cell_string.clone());
+            }
+
+            var_to_value.insert(var.clone(), vec_vals);
         } else {
             var_to_value.insert(var.clone(), CellArgument::Value(value));
         }
     }
+
+    // expand the values in range to get full dependants
 
     // println!("{:?}", var_to_value);
 

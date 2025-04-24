@@ -101,7 +101,7 @@ where
                             }
                         }
                     }
-                }).join();
+                });
             }
             Connection::NoMoreConnections => {
                 break;

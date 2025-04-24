@@ -55,59 +55,61 @@ where
     //         return Ok(());
     //     }
     // };
-
-    loop {
-        match manager.accept_new_connection() {
-            Connection::NewConnection { mut reader, mut writer } => {
-                let state_clone = Arc::clone(&state);
-                
-                let _ = thread::spawn(move || {
-                    loop {
-                        match reader.read_message() {
-                            ReadMessageResult::Message(msg) => {
-                                let reply = match msg.parse::<Command>() {
-                                    Ok(command) => match command {
-                                        Command::Get { cell_identifier } => {
-                                            let lock = state_clone.lock().unwrap();
-                                            let spreadsheet = &lock.0;
-                                            get::get_cell(cell_identifier, spreadsheet)
+    thread::scope(|s| {
+        loop {
+            match manager.accept_new_connection() {
+                Connection::NewConnection { mut reader, mut writer } => {
+                    let state_clone = Arc::clone(&state);
+                    
+                    s.spawn(move || {
+                        loop {
+                            match reader.read_message() {
+                                ReadMessageResult::Message(msg) => {
+                                    let reply = match msg.parse::<Command>() {
+                                        Ok(command) => match command {
+                                            Command::Get { cell_identifier } => {
+                                                let lock = state_clone.lock().unwrap();
+                                                let spreadsheet = &lock.0;
+                                                get::get_cell(cell_identifier, spreadsheet)
+                                            },
+                                            Command::Set { cell_identifier, cell_expr } => {
+                                                let mut lock = state_clone.lock().unwrap();
+                                                let (spreadsheet, depends_on, depends_by) = &mut *lock;
+                                                set_cell(
+                                                    cell_to_string(cell_identifier),
+                                                    cell_expr,
+                                                    spreadsheet,
+                                                    depends_on,
+                                                    depends_by,
+                                                );
+                                                continue;
+                                            },
                                         },
-                                        Command::Set { cell_identifier, cell_expr } => {
-                                            let mut lock = state_clone.lock().unwrap();
-                                            let (spreadsheet, depends_on, depends_by) = &mut *lock;
-                                            set_cell(
-                                                cell_to_string(cell_identifier),
-                                                cell_expr,
-                                                spreadsheet,
-                                                depends_on,
-                                                depends_by,
-                                            );
-                                            continue;
-                                        },
-                                    },
-                                    Err(e) => Reply::Error(e),
-                                };
-    
-                                if let WriteMessageResult::ConnectionClosed = writer.write_message(reply) {
+                                        Err(e) => Reply::Error(e),
+                                    };
+        
+                                    if let WriteMessageResult::ConnectionClosed = writer.write_message(reply) {
+                                        break;
+                                    }
+                                }
+                                ReadMessageResult::ConnectionClosed => {
+                                    break;
+                                }
+                                ReadMessageResult::Err(e) => {
+                                    eprintln!("Error reading message: {}", e);
                                     break;
                                 }
                             }
-                            ReadMessageResult::ConnectionClosed => {
-                                break;
-                            }
-                            ReadMessageResult::Err(e) => {
-                                eprintln!("Error reading message: {}", e);
-                                break;
-                            }
                         }
-                    }
-                });
-            }
-            Connection::NoMoreConnections => {
-                break;
+                    });
+                }
+                Connection::NoMoreConnections => {
+                    break;
+                }
             }
         }
-    }
+    });
+
 
     Ok(())
 }

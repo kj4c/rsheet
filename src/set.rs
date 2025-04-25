@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use rsheet_lib::{cell_expr::{CellArgument, CellExpr}, cell_value::CellValue};
+use rsheet_lib::{
+    cell_expr::{CellArgument, CellExpr},
+    cell_value::CellValue,
+};
 
 use crate::{handle_cell::handle_range, spreadsheet::CellContent};
 
@@ -34,18 +37,33 @@ pub fn set_cell(
     let mut var_to_value = HashMap::new();
 
     for var in &vars {
-        depends_on.entry(cell_string.clone()).or_default().insert(var.clone());
-        depends_by.entry(var.clone()).or_default().insert(cell_string.clone());
+        depends_on
+            .entry(cell_string.clone())
+            .or_default()
+            .insert(var.clone());
+        depends_by
+            .entry(var.clone())
+            .or_default()
+            .insert(cell_string.clone());
 
-        let value = spreadsheet.get(var).map(|c| c.value.clone()).unwrap_or(CellValue::None);
+        let value = spreadsheet
+            .get(var)
+            .map(|c| c.value.clone())
+            .unwrap_or(CellValue::None);
 
         if var.contains('_') {
             let (variables_used, vec_vals) = handle_range(var.clone(), spreadsheet);
-            
+
             // add the variables used to the depends_on
             for var_in_range in variables_used {
-                depends_on.entry(cell_string.clone()).or_default().insert(var_in_range.clone());
-                depends_by.entry(var_in_range.clone()).or_default().insert(cell_string.clone());
+                depends_on
+                    .entry(cell_string.clone())
+                    .or_default()
+                    .insert(var_in_range.clone());
+                depends_by
+                    .entry(var_in_range.clone())
+                    .or_default()
+                    .insert(cell_string.clone());
             }
 
             var_to_value.insert(var.clone(), vec_vals);
@@ -70,7 +88,11 @@ pub fn set_cell(
     spreadsheet.insert(
         cell_string.clone(),
         CellContent {
-            formula: if has_formula { Some(formula.clone()) } else { None },
+            formula: if has_formula {
+                Some(formula.clone())
+            } else {
+                None
+            },
             value,
         },
     );
@@ -80,11 +102,15 @@ pub fn set_cell(
         for dep in dependents.clone() {
             if let Some(content) = spreadsheet.get(&dep) {
                 if let Some(dep_formula) = &content.formula {
-                    set_cell(dep, dep_formula.clone(), spreadsheet, depends_on, depends_by);
+                    set_cell(
+                        dep,
+                        dep_formula.clone(),
+                        spreadsheet,
+                        depends_on,
+                        depends_by,
+                    );
                 }
             }
         }
     }
-    
 }
-    

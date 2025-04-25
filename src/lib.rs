@@ -9,7 +9,6 @@ use rsheet_lib::connect::{
     Connection, Manager, ReadMessageResult, Reader, WriteMessageResult, Writer,
 };
 use rsheet_lib::replies::Reply;
-use set::set_cell;
 use spreadsheet::CellContent;
 use std::sync::{
     mpsc::{self, Receiver, Sender},
@@ -22,6 +21,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 
 use log::info;
+
 pub fn start_server<M>(mut manager: M) -> Result<(), Box<dyn Error>>
 where
     M: Manager,
@@ -48,6 +48,20 @@ where
 
     let mut sender_map: HashMap<String, Sender<Command>> = HashMap::new();
 
+    // // hold onto the handle to join
+    // // thread blocks waiting on thsi thread to terminate
+    // let hey = thread::spawn(|| {
+    //     // does the function
+    //     // so if the main function ends all the threads running would end
+    // });
+
+    // hey.join().unwrap();
+
+    // used to prevent lifetime issues, creates a scope
+    // the scope would be the braces 
+    // s.spawn 
+    // s joins everything that hasn't been joined that is spawned within the scope the of 
+    // outer loop to handle new connections
     thread::scope(|s| loop {
         match manager.accept_new_connection() {
             Connection::NewConnection {
@@ -55,10 +69,10 @@ where
                 mut writer,
             } => {
                 let state_clone = Arc::clone(&state);
-                
-
-
+    
                 // create a thread and return a handle
+
+                // inner loop keeps running while connection is maintained
                 s.spawn(move || loop {
                     match reader.read_message() {
                         ReadMessageResult::Message(msg) => {
@@ -73,15 +87,19 @@ where
                                         cell_identifier,
                                         cell_expr,
                                     } => {
+                                        let snapshot = {
+                                            let lock = state_clone.lock().unwrap();
+                                            lock.0.clone()
+                                        };
+                                    
+                                        // evaluate formula outside the lock
+                                        let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &snapshot);
+                                    
+                                        // apply under the lock
                                         let mut lock = state_clone.lock().unwrap();
                                         let (spreadsheet, depends_on, depends_by) = &mut *lock;
-                                        set_cell(
-                                            cell_to_string(cell_identifier),
-                                            cell_expr,
-                                            spreadsheet,
-                                            depends_on,
-                                            depends_by,
-                                        );
+                                        set::apply_set(prepared, spreadsheet, depends_on, depends_by);
+                                    
                                         continue;
                                     }
                                 },

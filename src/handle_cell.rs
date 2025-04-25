@@ -100,7 +100,7 @@ pub fn handle_range(
     // handle matrices
     // row first then column
     let mut curr_col = start_col;
-    let mut curr_row = start_row;
+    let mut curr_row;
 
     let mut matrix_results: Vec<Vec<CellValue>> = Vec::new();
     while curr_col <= end_col {

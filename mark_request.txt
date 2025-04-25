@@ -36,9 +36,28 @@ that the closure has the ownershpi managed and that there will be no life time i
 rusts enforces strict ownership and borrowing rules so only one thread owns the data at a time.
 
 ## Question 4:
-
+To solve this edge case, i have a timestamp_map which basically amps each cell  to the most recent timestamp update.
+let mut timestamp_lock = timestamp_map_clone.write().unwrap();
+if let Some(last_update_time) = timestamp_lock.get(&cell_string) {
+    if *last_update_time > update_timestamp {
+        // if the last time u updated is more recent so don't perfrom this
+        continue;
+    }
+}
+so what this does is that after calculating the formula (and performing sleep) if it checks that another threadtried to access this cell and has a time stamp that is
+later than the current timestamp, it would not continue with inserting the new value into the spreadsheet as it was a previous command. This prevents the edge case 
+as a newer set command can never be overwritten by an older set command
 
 ## Question 5:
+first, the spreadsheet sets a1 to 5. then when i set b1 to refer to a1, b1 becomes 5 too. at that point, 
+i keep track of the fact that b1 depends on a1, so if a1 ever changes, i’ll need to update b1 by using a HashSet depends_on and depends_by. 
+i do this by adding a1 to b1’s list of things it depends on, and also adding b1 to a1’s list of things that depend on it.
+
+next, i set c1 to refer to b1, so c1 becomes 5 as well. again, i update the dependency tracking: c1 depends on b1, and b1 has c1 listed as something that depends on it.
+
+then later, when a1 is changed to 7, i check what depends on a1. i find b1, so i update b1.
+then i check what depends on b1, which is c1, so i update c1 as well.
+this way, whenevr a value changes everything that depends on that value will be updated in a recursive manner.
 
 # Questions to the Marker (OPTIONAL)
 

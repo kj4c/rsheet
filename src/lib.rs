@@ -68,6 +68,17 @@ where
                                         let update_timestamp = get_current_timestamp();
                                         let cell_string = cell_to_string(cell_identifier);
 
+                                        // get a peek of the current values by locking for abit
+                                        // once it goes out of scope lock drops so its unlocked
+                                        let spreadsheet_clone = {
+                                            let lock = state_clone.lock().unwrap();
+                                            lock.0.clone()
+                                        };
+                                    
+                                        // evaluate formula outside the lock this will wait but not lock the spreadsheet
+                                        let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &spreadsheet_clone);
+
+                                        
                                         let mut timestamp_lock = timestamp_map_clone.write().unwrap();
                                         if let Some(last_update_time) = timestamp_lock.get(&cell_string) {
                                             if *last_update_time > update_timestamp {
@@ -78,17 +89,6 @@ where
 
                                         // insert latest timestamp
                                         timestamp_lock.insert(cell_string.clone(), update_timestamp);
-
-
-                                        // get a peek of the current values by locking for abit
-                                        // once it goes out of scope lock drops so its unlocked
-                                        let spreadsheet_clone = {
-                                            let lock = state_clone.lock().unwrap();
-                                            lock.0.clone()
-                                        };
-                                    
-                                        // evaluate formula outside the lock this will wait but not lock the spreadsheet
-                                        let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &spreadsheet_clone);
                                     
                                         // once value is returned we lock it to set the stuff up
                                         let mut lock = state_clone.lock().unwrap();

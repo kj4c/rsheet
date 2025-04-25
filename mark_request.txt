@@ -36,15 +36,7 @@ that the closure has the ownershpi managed and that there will be no life time i
 rusts enforces strict ownership and borrowing rules so only one thread owns the data at a time.
 
 ## Question 4:
-the complex edge case is handled through the thread synchronization and use of locks.
-first i clone the state before computing
-let spreadsheet_clone = { let lock = state_clone.lock().unwrap(); lock.0.clone() };
-next i evaluated the formula (which incldues the sleep), spreadsheet wont be locked from this as i will be using the cloned, this ensures
-that other updates can process without waiting
-let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &spreadsheet_clone);
-lastly, i relock to apply the update meaning i only ever update when i want to set a new value
-let mut lock = state_clone.lock().unwrap();
-by releasing locks during computation and re-locking during any cell updates, this guarnatees that new updates are not overriden.
+
 
 ## Question 5:
 

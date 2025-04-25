@@ -4,7 +4,7 @@ pub mod set;
 mod spreadsheet;
 
 use handle_cell::cell_to_string;
-use rsheet_lib::command::{CellIdentifier, Command};
+use rsheet_lib::command::Command;
 use rsheet_lib::connect::{
     Connection, Manager, ReadMessageResult, Reader, WriteMessageResult, Writer,
 };
@@ -40,19 +40,17 @@ where
 
     let state: SpreadsheetState =
         Arc::new(Mutex::new((HashMap::new(), HashMap::new(), HashMap::new())));
-    
-    type TimestampMap = HashMap<String, u64>;
-    let timestamp_map: Arc<RwLock<TimestampMap>> = Arc::new(RwLock::new(HashMap::new()));
+
+    let timestamp_map: Arc<RwLock<HashMap<String, u64>>> = Arc::new(RwLock::new(HashMap::new()));
 
     // creates a scope to prevent lifetime issues and join everything in the end
     thread::scope(|s| {
         while let Connection::NewConnection { mut reader, mut writer } = manager.accept_new_connection() {
             let state_clone = Arc::clone(&state);
-            
-            // Inner loop keeps running while connection is maintained
+        
             let timestamp_map_clone = Arc::clone(&timestamp_map);
             s.spawn(move || {
-                s.spawn(move || loop {
+                loop {
                     match reader.read_message() {
                         ReadMessageResult::Message(msg) => {
                             let reply = match msg.parse::<Command>() {
@@ -73,9 +71,12 @@ where
                                         let mut timestamp_lock = timestamp_map_clone.write().unwrap();
                                         if let Some(last_update_time) = timestamp_lock.get(&cell_string) {
                                             if *last_update_time > update_timestamp {
+                                                // if the last time u updated is more recent so don't perfrom this
                                                 continue;
                                             }
                                         }
+
+                                        // insert latest timestamp
                                         timestamp_lock.insert(cell_string.clone(), update_timestamp);
 
 
@@ -114,7 +115,7 @@ where
                             break;
                         }
                     }
-                });
+                }
             });
         }
     });

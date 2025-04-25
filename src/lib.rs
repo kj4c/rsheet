@@ -35,15 +35,12 @@ where
         Arc::new(Mutex::new((HashMap::new(), HashMap::new(), HashMap::new())));
 
     // creates a scope to prevent lifetime issues and join everything in the end
-    thread::scope(|s| loop {
-        match manager.accept_new_connection() {
-            Connection::NewConnection {
-                mut reader,
-                mut writer,
-            } => {
-                let state_clone = Arc::clone(&state);
-                
-                // inner loop keeps running while connection is maintained
+    thread::scope(|s| {
+        while let Connection::NewConnection { mut reader, mut writer } = manager.accept_new_connection() {
+            let state_clone = Arc::clone(&state);
+            
+            // Inner loop keeps running while connection is maintained
+            s.spawn(move || {
                 s.spawn(move || loop {
                     match reader.read_message() {
                         ReadMessageResult::Message(msg) => {
@@ -94,12 +91,9 @@ where
                         }
                     }
                 });
-            }
-            Connection::NoMoreConnections => {
-                break;
-            }
+            });
         }
     });
-
+    
     Ok(())
 }

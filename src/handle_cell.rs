@@ -122,5 +122,5 @@ pub fn handle_range(
         curr_col += 1;
     }
 
-    return (variables, CellArgument::Matrix(matrix_results));
+    (variables, CellArgument::Matrix(matrix_results))
 }

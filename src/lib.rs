@@ -26,19 +26,13 @@ pub fn start_server<M>(mut manager: M) -> Result<(), Box<dyn Error>>
 where
     M: Manager,
 {
-    // make everything mutex
-    // start the spreadsheet instance.
-    let mut spreadsheet: HashMap<String, CellContent> = HashMap::new();
-    // dependency graph to see what affects what
-    // so key = A1, set = A2 => A1 has an equation with A2
-    let mut depends_on: HashMap<String, HashSet<String>> = HashMap::new();
-    // so key = A1, set = A2 => A2 has an equation with A1
-    let mut depends_by: HashMap<String, HashSet<String>> = HashMap::new();
-
     type SpreadsheetState = Arc<
         Mutex<(
+            // spreadsheet instance with CelLContent struct which stores formula and value
             HashMap<String, CellContent>,
+            // dependson set so key = A1, set = A2 => A1 has an equation with A2
             HashMap<String, HashSet<String>>,
+            // depends_by set so key = A1, set = A2 => A2 has an equation with A1
             HashMap<String, HashSet<String>>,
         )>,
     >;
@@ -48,20 +42,7 @@ where
 
     let mut sender_map: HashMap<String, Sender<Command>> = HashMap::new();
 
-    // // hold onto the handle to join
-    // // thread blocks waiting on thsi thread to terminate
-    // let hey = thread::spawn(|| {
-    //     // does the function
-    //     // so if the main function ends all the threads running would end
-    // });
-
-    // hey.join().unwrap();
-
-    // used to prevent lifetime issues, creates a scope
-    // the scope would be the braces 
-    // s.spawn 
-    // s joins everything that hasn't been joined that is spawned within the scope the of 
-    // outer loop to handle new connections
+    // creates a scope to prevent lifetime issues and join everything in the end
     thread::scope(|s| loop {
         match manager.accept_new_connection() {
             Connection::NewConnection {
@@ -69,9 +50,7 @@ where
                 mut writer,
             } => {
                 let state_clone = Arc::clone(&state);
-    
-                // create a thread and return a handle
-
+                
                 // inner loop keeps running while connection is maintained
                 s.spawn(move || loop {
                     match reader.read_message() {
@@ -87,15 +66,17 @@ where
                                         cell_identifier,
                                         cell_expr,
                                     } => {
-                                        let snapshot = {
+                                        // get a peek of the current values by locking for abit
+                                        // once it goes out of scope lock drops so its unlocked
+                                        let spreadsheet_clone = {
                                             let lock = state_clone.lock().unwrap();
                                             lock.0.clone()
                                         };
                                     
-                                        // evaluate formula outside the lock
-                                        let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &snapshot);
+                                        // evaluate formula outside the lock this will wait but not lock the spreadsheet
+                                        let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &spreadsheet_clone);
                                     
-                                        // apply under the lock
+                                        // once value is returned we lock it to set the stuff up
                                         let mut lock = state_clone.lock().unwrap();
                                         let (spreadsheet, depends_on, depends_by) = &mut *lock;
                                         set::apply_set(prepared, spreadsheet, depends_on, depends_by);

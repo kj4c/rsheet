@@ -7,18 +7,17 @@ use rsheet_lib::{
 
 use crate::{handle_cell::handle_range, spreadsheet::CellContent};
 
-/// Everything needed to update a cell after evaluation
 pub struct PreparedSet {
     pub cell_string: String,
     pub content: CellContent,
     pub new_depends_on: HashSet<String>,
 }
 
-/// Step 1: Run this outside the lock to do heavy work (can sleep)
+/// this does not lock the spraedshseet and does all the calculations.
 pub fn prepare_set(
     cell_string: String,
     formula: String,
-    spreadsheet_snapshot: &HashMap<String, CellContent>,
+    spreadsheet_clone: &HashMap<String, CellContent>,
 ) -> PreparedSet {
     let expression = CellExpr::new(&formula);
     let vars = expression.find_variable_names();
@@ -27,17 +26,20 @@ pub fn prepare_set(
     let mut var_to_value = HashMap::new();
     let mut new_depends_on = HashSet::new();
 
+    // get every vairable and insert dependencies
     for var in &vars {
         new_depends_on.insert(var.clone());
 
-        let value = spreadsheet_snapshot
+        let value = spreadsheet_clone
             .get(var)
             .map(|c| c.value.clone())
             .unwrap_or(CellValue::None);
 
+        // handle any variables that are ranges/
         if var.contains('_') {
-            let (variables_used, vec_vals) = handle_range(var.clone(), spreadsheet_snapshot);
+            let (variables_used, vec_vals) = handle_range(var.clone(), spreadsheet_clone);
 
+            // variables_used expands the ranges into variable`s so we can add em to the depends on
             for var_in_range in variables_used {
                 new_depends_on.insert(var_in_range);
             }
@@ -48,6 +50,7 @@ pub fn prepare_set(
         }
     }
 
+
     let evaluated = expression.evaluate(&var_to_value);
     let value = match evaluated {
         Ok(v) => v,
@@ -57,11 +60,13 @@ pub fn prepare_set(
         },
     };
 
+    // set the cell to if it has a formula or not
     let content = CellContent {
         formula: if has_formula { Some(formula) } else { None },
         value,
     };
 
+    // return the cell, the evaluated value and the new dependency set
     PreparedSet {
         cell_string,
         content,
@@ -69,7 +74,7 @@ pub fn prepare_set(
     }
 }
 
-/// Step 2: Apply the result to the actual spreadsheet (under lock)
+// lock the spreadsheets and actually changes the variables from the values taken by the previous function
 pub fn apply_set(
     prepared: PreparedSet,
     spreadsheet: &mut HashMap<String, CellContent>,
@@ -78,7 +83,7 @@ pub fn apply_set(
 ) {
     let cell_string = &prepared.cell_string;
 
-    // Remove old dependencies
+    // remove the old dependencies
     if let Some(old) = depends_on.get(cell_string) {
         for var in old {
             if let Some(dependents) = depends_by.get_mut(var) {
@@ -87,18 +92,19 @@ pub fn apply_set(
         }
     }
 
-    // Add new dependencies
+    // add the new depends_on values
     depends_on
         .insert(cell_string.clone(), prepared.new_depends_on.clone());
 
+    // update the depends_by array
     for var in &prepared.new_depends_on {
         depends_by.entry(var.clone()).or_default().insert(cell_string.clone());
     }
 
-    // Update the cell
+    // update the cell
     spreadsheet.insert(cell_string.clone(), prepared.content.clone());
 
-    // Recalculate any dependent cells recursively
+    // recalculate any dependent cells recursively
     if let Some(dependents) = depends_by.get(cell_string) {
         for dep in dependents.clone() {
             if let Some(dep_content) = spreadsheet.get(&dep) {

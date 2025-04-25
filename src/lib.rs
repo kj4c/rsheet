@@ -4,7 +4,7 @@ pub mod set;
 mod spreadsheet;
 
 use handle_cell::cell_to_string;
-use rsheet_lib::command::Command;
+use rsheet_lib::command::{CellIdentifier, Command};
 use rsheet_lib::connect::{
     Connection, Manager, ReadMessageResult, Reader, WriteMessageResult, Writer,
 };
@@ -15,6 +15,13 @@ use std::thread;
 
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::time::Instant;
+use std::sync::RwLock;
+
+
+fn get_current_timestamp() -> u64 {
+    Instant::now().elapsed().as_millis() as u64
+}
 
 pub fn start_server<M>(mut manager: M) -> Result<(), Box<dyn Error>>
 where
@@ -33,6 +40,9 @@ where
 
     let state: SpreadsheetState =
         Arc::new(Mutex::new((HashMap::new(), HashMap::new(), HashMap::new())));
+    
+    type TimestampMap = HashMap<String, u64>;
+    let timestamp_map: Arc<RwLock<TimestampMap>> = Arc::new(RwLock::new(HashMap::new()));
 
     // creates a scope to prevent lifetime issues and join everything in the end
     thread::scope(|s| {
@@ -40,6 +50,7 @@ where
             let state_clone = Arc::clone(&state);
             
             // Inner loop keeps running while connection is maintained
+            let timestamp_map_clone = Arc::clone(&timestamp_map);
             s.spawn(move || {
                 s.spawn(move || loop {
                     match reader.read_message() {
@@ -55,6 +66,19 @@ where
                                         cell_identifier,
                                         cell_expr,
                                     } => {
+                                        // get curr time
+                                        let update_timestamp = get_current_timestamp();
+                                        let cell_string = cell_to_string(cell_identifier);
+
+                                        let mut timestamp_lock = timestamp_map_clone.write().unwrap();
+                                        if let Some(last_update_time) = timestamp_lock.get(&cell_string) {
+                                            if *last_update_time > update_timestamp {
+                                                continue;
+                                            }
+                                        }
+                                        timestamp_lock.insert(cell_string.clone(), update_timestamp);
+
+
                                         // get a peek of the current values by locking for abit
                                         // once it goes out of scope lock drops so its unlocked
                                         let spreadsheet_clone = {

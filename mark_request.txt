@@ -6,12 +6,45 @@ These questions are listed in the spec, and you must fill them out
 to receive marks for the Design Questions.
 
 ## Question 1:
+- This would be worse than the current implementation because it forces all the parsing to be done within lib.rs. this reduces the modularity and clarity.
+we only want to handle the Get and Set commands in lib.rs, but adding an additional parsing step makes it harder to maintain and understand.
+
+- This is worse.FromStr is the idiomatic way in Rust to convert a string, this allows you to integrate other standard library methods like
+.parse(), Writing a separate parse function would make the code messier and less consistent with Rust conventions, making it harder for new users to understand.
+
+- It is worse becasue it's more complex. It could be good if we were to extend the commands with more fields but for this assignment
+the fields are set and dont change. By having it in the Command enum it makes it more efficient and concise which makes it easier topattern match.
 
 ## Question 2:
+- there is repetition, making the cell key, getting the value, pushing to the variables and the incrementing of either the row or col.
+it could be better by abstracting these steps into a helper function and having boolean variables to indicate if the incremting should be for the row, col.
+We have to separate the scalar variables from the vector and matrix variables as there is afor loop involved and i only ever check for vector/matrix
+variables if the cell contained a "_" within the name and using the same functinos for scaler variables would nto make sense.
+
+- i would need to add one loop to iterate over the list of matrices, and each matrix's rows and columns can be called
+similarily to how i am currently doing it, thereforfe i would abstract my logic for matrix calculations into a separate helper function so i can use it within Matrix list.
 
 ## Question 3:
+let lock = state_clone.lock().unwrap();
+this locks a mutex to protect the state_clone which has the spreadsheet data, multiple threads could concurrently mutate
+or read the spreadsheet and lead to data races and inconsistent reads. rust's makes it so that only one thread can access the data at a time
+and the lock will be released when the scope is exited. therefore, prevneting situations where multiple threads modify the shared state.
+
+s.spawn(move || {
+this line spawns a new thread within the scope and this ensures that the spawned thread completes before the program exits. Rust makes sure
+that the closure has the ownershpi managed and that there will be no life time issues which can result in double-frees, dangling  references or race-conditions.
+rusts enforces strict ownership and borrowing rules so only one thread owns the data at a time.
 
 ## Question 4:
+the complex edge case is handled through the thread synchronization and use of locks.
+first i clone the state before computing
+let spreadsheet_clone = { let lock = state_clone.lock().unwrap(); lock.0.clone() };
+next i evaluated the formula (which incldues the sleep), spreadsheet wont be locked from this as i will be using the cloned, this ensures
+that other updates can process without waiting
+let prepared = set::prepare_set(cell_to_string(cell_identifier), cell_expr, &spreadsheet_clone);
+lastly, i relock to apply the update meaning i only ever update when i want to set a new value
+let mut lock = state_clone.lock().unwrap();
+by releasing locks during computation and re-locking during any cell updates, this guarnatees that new updates are not overriden.
 
 ## Question 5:
 

@@ -10,17 +10,11 @@ use rsheet_lib::connect::{
 };
 use rsheet_lib::replies::Reply;
 use spreadsheet::CellContent;
-use std::sync::{
-    mpsc::{self, Receiver, Sender},
-    Arc, Mutex,
-};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
-use std::cell::{self, Cell};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-
-use log::info;
 
 pub fn start_server<M>(mut manager: M) -> Result<(), Box<dyn Error>>
 where
@@ -39,8 +33,6 @@ where
 
     let state: SpreadsheetState =
         Arc::new(Mutex::new((HashMap::new(), HashMap::new(), HashMap::new())));
-
-    let mut sender_map: HashMap<String, Sender<Command>> = HashMap::new();
 
     // creates a scope to prevent lifetime issues and join everything in the end
     thread::scope(|s| loop {

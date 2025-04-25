@@ -1,16 +1,13 @@
-use std::{
-    cell::{self, Cell},
-    collections::HashMap,
-};
+use std::collections::HashMap;
 
 use rsheet_lib::{
-    cell_expr::{self, CellArgument},
+    cell_expr::CellArgument,
     cell_value::CellValue,
     cells::{column_name_to_number, column_number_to_name},
     command::CellIdentifier,
 };
 
-use crate::spreadsheet::{self, CellContent};
+use crate::spreadsheet::CellContent;
 
 pub fn cell_to_string(cell: CellIdentifier) -> String {
     let row = cell.row;

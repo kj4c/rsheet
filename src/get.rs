@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use handle_cell::{cell_key, cell_to_string};
+use handle_cell::cell_to_string;
 use rsheet_lib::{cell_value::CellValue, command::CellIdentifier, replies::Reply};
 
 use crate::{handle_cell, spreadsheet::CellContent};
